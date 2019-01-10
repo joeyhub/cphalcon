@@ -21,6 +21,13 @@ Set-Variable `
 	-Option ReadOnly `
 	-Force
 
+Set-Variable `
+	-name PECL_URI `
+	-value "https://windows.php.net/downloads/pecl/releases" `
+	-Scope Global `
+	-Option ReadOnly `
+	-Force
+
 function SetupPrerequisites {
 	Ensure7ZipIsInstalled
 
@@ -54,13 +61,12 @@ function EnsureRequiredDirectoriesPresent {
 
 function InstallPhpSdk {
 	param (
-		[Parameter(Mandatory=$true)]  [System.String] $Version,
 		[Parameter(Mandatory=$false)] [System.String] $InstallPath = "C:\Projects\php-sdk"
 	)
 
-	Write-Host "Install PHP SDK binary tools: ${Version}"
+	Write-Host "Install PHP SDK binary tools: ${Env:PHP_SDK_VERSION}"
 
-	$FileName  = "php-sdk-${Version}"
+	$FileName  = "php-sdk-${Env:PHP_SDK_VERSION}"
 	$RemoteUrl = "${PHP_SDK_URI}/archive/${FileName}.zip"
 	$Archive   = "C:\Downloads\${FileName}.zip"
 
@@ -210,6 +216,37 @@ function InstallPhpDevPack {
 		}
 
 		Move-Item -Path $UnzipPath -Destination $InstallPath
+	}
+}
+
+function InstallPeclPsr {
+	param (
+		[Parameter(Mandatory=$true)]  [System.String] $PhpVersion,
+		[Parameter(Mandatory=$true)]  [System.String] $BuildType,
+		[Parameter(Mandatory=$true)]  [System.String] $VC,
+		[Parameter(Mandatory=$true)]  [System.String] $Platform,
+		[Parameter(Mandatory=$false)] [System.String] $PhpInstallPath = "C:\Projects\php"
+	)
+
+	Write-Host "Install PSR extension: ${Env:PSR_PECL_VERSION}"
+
+	If ($BuildType -eq 'nts-Win32') {
+		$Type = 'nts'
+	} Else {
+		$Type = 'ts'
+	}
+
+	$FileName = "php_psr-${Version}-${Env:PSR_PECL_VERSION}-${Type}-vc${VC}-${Platform}.zip"
+
+	$RemoteUrl = "${PECL_URI}/psr/${Env:PSR_PECL_VERSION}/${FileName}"
+	$Archive = "C:\Downloads\${FileName}"
+
+	If (-not (Test-Path "${PhpInstallPath}\ext\php_psr.dll")) {
+		If (-not [System.IO.File]::Exists($DestinationPath)) {
+			DownloadFile $RemoteUrl $Archive
+		}
+
+		Expand-Item7zip $Archive "${PhpInstallPath}\ext"
 	}
 }
 
@@ -481,29 +518,7 @@ Function TuneUpPhp {
 	Write-Output "extension = php_psr.dll"           | Out-File -Encoding "ASCII" -Append $IniFile
 }
 
-Function InstallPsrExtension {
-	Write-Host "Install PSR extension: ${Env:PSR_PECL_VERSION}" -foregroundcolor Cyan
 
-	If ($Env:BUILD_TYPE -eq 'nts-Win32') {
-		$BuildType = 'nts'
-	} Else {
-		$BuildType = 'ts'
-	}
-
-	$FileName = "php_psr-${Env:PSR_PECL_VERSION}-${Env:PHP_MINOR}-${BuildType}-vc${Env:VC_VERSION}-${Env:PLATFORM}.zip"
-
-	$RemoteUrl = "https://windows.php.net/downloads/pecl/releases/psr/${Env:PSR_PECL_VERSION}/${FileName}"
-	$DestinationPath = "C:\Downloads\${FileName}"
-
-	If (-not (Test-Path "${Env:PHP_PATH}\ext\php_psr.dll")) {
-		If (-not [System.IO.File]::Exists($DestinationPath)) {
-			Write-Host "Downloading PSR extension: ${RemoteUrl} ..."
-			DownloadFile $RemoteUrl $DestinationPath
-		}
-
-		Expand-Item7zip $DestinationPath "${Env:PHP_PATH}\ext"
-	}
-}
 
 Function InstallStablePhalcon {
 	$BaseUri = "https://github.com/phalcon/cphalcon/releases/download"
