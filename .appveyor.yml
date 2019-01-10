@@ -2,14 +2,26 @@ version: 4.0.0-alpha.2+{build}
 
 environment:
     matrix:
-        - PHP_MINOR: 7.2
-          VC_VERSION: 15
-          BUILD_TYPE: Win32
-          APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-        - PHP_MINOR: 7.2
+#        - PHP_MINOR: 7.2
+#          VC_VERSION: 15
+#          BUILD_TYPE: Win32
+#          APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+#
+#        - PHP_MINOR: 7.2
+#          VC_VERSION: 15
+#          BUILD_TYPE: nts-Win32
+#          APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+
+#        - PHP_MINOR: 7.3
+#          VC_VERSION: 15
+#          BUILD_TYPE: Win32
+#          APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+
+        - PHP_MINOR: 7.3
           VC_VERSION: 15
           BUILD_TYPE: nts-Win32
           APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+
     PHP_PATH: C:\Projects\php
     PHP_SDK_PATH: C:\Projects\php-sdk
     PHP_DEVPACK: C:\Projects\php-devpack
@@ -41,13 +53,13 @@ platform:
     - x86
     - x64
 
-branches:
-  only:
-    - master
-    - 4.0.x
+#branches:
+#  only:
+#    - master
+#    - 4.0.x
 
 install:
-    - ps: Import-Module .\tests\_ci\appveyor.psm1
+    - ps: Import-Module .\.ci\appveyor.psm1
     - ps: AppendSessionPath
     - ps: SetupPhpVersionString
     - ps: EnsureRequiredDirectoriesPresent
