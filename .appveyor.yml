@@ -17,16 +17,18 @@ environment:
 #          BUILD_TYPE: Win32
 #          APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
 
-        - PHP_MINOR: 7.3
+        - PHP_VERSION: 7.3
           VC_VERSION: 15
           BUILD_TYPE: nts-Win32
           APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+
+    PHP_SDK_VERSION: 2.1.9
 
     PHP_PATH: C:\Projects\php
     PHP_SDK_PATH: C:\Projects\php-sdk
     PHP_DEVPACK: C:\Projects\php-devpack
     TEST_PHP_EXECUTABLE: C:\Projects\php\php.exe
-    PHP_SDK_VERSION: 2.0.7
+
     PACKAGE_PREFIX: phalcon
     EXTENSION_NAME: phalcon
     EXTENSION_FILE: php_phalcon.dll
@@ -61,11 +63,10 @@ platform:
 install:
     - ps: Import-Module .\.ci\appveyor.psm1
     - ps: SetupPrerequisites
-    - ps: InstallPhpSdk -Version $Env:PHP_SDK_VERSION
+    - ps: InstallPhpSdk $Env:PHP_SDK_VERSION
+    - ps: InstallPhp $Env:PHP_VERSION $Env:BUILD_TYPE $Env:VC_VERSION $Env:PLATFORM
 
     - ps: AppendSessionPath
-    - ps: SetupPhpVersionString
-    - ps: InstallPhp
     - ps: InstallPhpDevPack
     - ps: InstallPsrExtension
     - ps: InstallParser

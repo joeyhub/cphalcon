@@ -14,6 +14,13 @@ Set-Variable `
 	-Option ReadOnly `
 	-Force
 
+Set-Variable `
+	-name PHP_URI `
+	-value "http://windows.php.net/downloads/releases" `
+	-Scope Global `
+	-Option ReadOnly `
+	-Force
+
 function SetupPrerequisites {
 	Ensure7ZipIsInstalled
 
@@ -59,17 +66,121 @@ function InstallPhpSdk {
 
 	if (-not (Test-Path $InstallPath)) {
 		if (-not [System.IO.File]::Exists($Archive)) {
-			DownloadFile -RemoteUrl $RemoteUrl -Destination $Archive
+			DownloadFile $RemoteUrl $Archive
 		}
 
 		$UnzipPath = "${Env:Temp}\php-sdk-binary-tools-${FileName}"
 		If (-not (Test-Path "${UnzipPath}")) {
 			Write-Host "Unpack to ${UnzipPath}"
-			Expand-Item7zip -Archive $Archive -Destination $Env:Temp
+			Expand-Item7zip $Archive $Env:Temp
 		}
 
 		Move-Item -Path $UnzipPath -Destination $InstallPath
 	}
+}
+
+function DownloadFile {
+	param (
+		[Parameter(Mandatory=$true)] [System.String] $RemoteUrl,
+		[Parameter(Mandatory=$true)] [System.String] $Destination
+	)
+
+	$RetryMax   = 5
+	$RetryCount = 0
+	$Completed  = $false
+
+	$WebClient = New-Object System.Net.WebClient
+	$WebClient.Headers.Add('User-Agent', 'AppVeyor PowerShell Script')
+
+	Write-Host "Downloading: ${RemoteUrl} => ${Destination} ..."
+
+	while (-not $Completed) {
+		try {
+			$WebClient.DownloadFile($RemoteUrl, $Destination)
+			$Completed = $true
+		} catch  {
+			if ($RetryCount -ge $RetryMax) {
+				$ErrorMessage = $_.Exception.Message
+				Write-Error -Message "${ErrorMessage}"
+				$Completed = $true
+			} else {
+				$RetryCount++
+			}
+		}
+	}
+}
+
+function Expand-Item7zip {
+	param(
+		[Parameter(Mandatory=$true)] [System.String] $Archive,
+		[Parameter(Mandatory=$true)] [System.String] $Destination
+	)
+
+	if (-not (Test-Path -Path $Archive -PathType Leaf)) {
+		throw "Specified archive file does not exist: ${Archive}"
+	}
+
+	if (-not (Test-Path -Path $Destination -PathType Container)) {
+		New-Item $Destination -ItemType Directory | Out-Null
+	}
+
+	$Result   = (& 7z x "$Archive" "-o$Destination" -aoa -bd -y -r)
+	$ExitCode = $LASTEXITCODE
+
+	If ($ExitCode -ne 0) {
+		throw "An error occurred while unzipping '${Archive}' to '${Destination}'"
+	}
+}
+
+function InstallPhp {
+	param (
+		[Parameter(Mandatory=$true)]  [System.String] $Version,
+		[Parameter(Mandatory=$true)]  [System.String] $BuildType,
+		[Parameter(Mandatory=$true)]  [System.String] $VC,
+		[Parameter(Mandatory=$true)]  [System.String] $Platform,
+		[Parameter(Mandatory=$false)] [System.String] $InstallPath = "C:\Projects\php"
+	)
+
+	$Version = SetupPhpVersionString $Version
+	Write-Host "Install PHP: ${Version}"
+
+	$RemoteUrl = "${PHP_URI}/php-${Version}-${BuildType}-vc${VC}-${Platform}.zip"
+	$Archive   = "C:\Downloads\php-${Version}-${BuildType}-VC${VC}-${Platform}.zip"
+
+	if (-not (Test-Path $InstallPath)) {
+		if (-not [System.IO.File]::Exists($Archive)) {
+			DownloadFile $RemoteUrl $Archive
+		}
+
+		Expand-Item7zip $Archive $InstallPath
+	}
+
+	if (-not (Test-Path "${InstallPath}\php.ini")) {
+		Copy-Item "${InstallPath}\php.ini-development" "${InstallPath}\php.ini"
+	}
+}
+
+function SetupPhpVersionString {
+	param (
+		[Parameter(Mandatory=$true)] [String] $Pattern
+	)
+
+	$RemoteUrl   = "${PHP_URI}/sha1sum.txt"
+	$Destination = "${Env:Temp}\php-sha1sum.txt"
+
+	If (-not [System.IO.File]::Exists($Destination)) {
+		DownloadFile $RemoteUrl $Destination
+	}
+
+	$VersionString = Get-Content $Destination | Where-Object {
+		$_ -match "php-($Pattern\.\d+)-src"
+	} | ForEach-Object { $matches[1] }
+
+	if ($VersionString -NotMatch '\d+\.\d+\.\d+') {
+		throw "Unable to obtain PHP version string using pattern 'php-($Pattern\.\d+)-src'"
+	}
+
+	Write-Output $VersionString.Split(' ')[-1]
 }
 
 # ================================================================================== #
@@ -451,31 +562,6 @@ Function InstallZephir {
 	}
 }
 
-Function InstallPhp {
-	Write-Host "Install PHP: ${Env:PHP_VERSION}" -foregroundcolor Cyan
-
-	$RemoteUrl = "http://windows.php.net/downloads/releases/php-${Env:PHP_VERSION}-${Env:BUILD_TYPE}-vc${Env:VC_VERSION}-${Env:PLATFORM}.zip"
-	$DestinationPath = "C:\Downloads\php-${Env:PHP_VERSION}-${Env:BUILD_TYPE}-VC${Env:VC_VERSION}-${Env:PLATFORM}.zip"
-
-	If (-not (Test-Path $Env:PHP_PATH)) {
-		If (-not [System.IO.File]::Exists($DestinationPath)) {
-			Write-Host "Downloading PHP source code: $RemoteUrl ..."
-			DownloadFile $RemoteUrl $DestinationPath
-		}
-
-		Expand-Item7zip "$DestinationPath" "${Env:PHP_PATH}"
-	}
-
-	If (-not (Test-Path "${Env:PHP_PATH}\php.ini")) {
-		Copy-Item "${Env:PHP_PATH}\php.ini-development" "${Env:PHP_PATH}\php.ini"
-	}
-}
-
-
-
-
-
-
 Function EnsureChocolateyIsInstalled {
 	If (-not (Get-Command "choco" -ErrorAction SilentlyContinue)) {
 		$ChocolateyInstallationDirectory = "${Env:ProgramData}\chocolatey\bin"
@@ -500,26 +586,6 @@ Function EnsureComposerIsInstalled {
 		Write-Output "@echo off"                     | Out-File -Encoding "ASCII" -Append $ComposerBatch
 		Write-Output "${Php} `"${ComposerPhar}`" %*" | Out-File -Encoding "ASCII" -Append $ComposerBatch
 	}
-}
-
-Function SetupPhpVersionString {
-	$RemoteUrl = 'http://windows.php.net/downloads/releases/sha1sum.txt';
-	$DestinationPath = "${Env:Temp}\php-sha1sum.txt"
-
-	If (-not [System.IO.File]::Exists($DestinationPath)) {
-		Write-Host "Downloading PHP SHA sums file: ${RemoteUrl} ..."
-		DownloadFile $RemoteUrl $DestinationPath
-	}
-
-	$VersionString = Get-Content $DestinationPath | Where-Object {
-		$_ -match "php-($Env:PHP_MINOR\.\d+)-src"
-	} | ForEach-Object { $matches[1] }
-
-	If ($VersionString -NotMatch '\d+\.\d+\.\d+') {
-		Throw "Unable to obtain PHP version string using pattern 'php-($Env:PHP_MINOR\.\d+)-src'"
-	 }
-
-	$Env:PHP_VERSION = $VersionString
 }
 
 Function AppendSessionPath {
@@ -556,55 +622,4 @@ Function AppendSessionPath {
 	}
 
 	Set-Location "${CurrentPath}"
-}
-
-Function Expand-Item7zip {
-	Param(
-		[Parameter(Mandatory=$true)][System.String] $Archive,
-		[Parameter(Mandatory=$true)][System.String] $Destination
-	)
-
-	If (-not (Test-Path -Path $Archive -PathType Leaf)) {
-		Throw "Specified archive File is invalid: [$Archive]"
-	}
-
-	If (-not (Test-Path -Path $Destination -PathType Container)) {
-		New-Item $Destination -ItemType Directory | Out-Null
-	}
-
-	$Result = (& 7z x "$Archive" "-o$Destination" -aoa -bd -y -r)
-
-	$7zipExitCode = $LASTEXITCODE
-	If ($7zipExitCode -ne 0) {
-		Throw "An error occurred while unzipping [$Archive] to [$Destination]. Exit code was [${7zipExitCode}]"
-	}
-}
-
-Function DownloadFile {
-	Param(
-		[Parameter(Mandatory=$true)][System.String] $RemoteUrl,
-		[Parameter(Mandatory=$true)][System.String] $DestinationPath
-	)
-
-	$RetryMax   = 5
-	$RetryCount = 0
-	$Completed  = $false
-
-	$WebClient = New-Object System.Net.WebClient
-	$WebClient.Headers.Add('User-Agent', 'AppVeyor PowerShell Script')
-
-	While (-not $Completed) {
-		Try {
-			$WebClient.DownloadFile($RemoteUrl, $DestinationPath)
-			$Completed = $true
-		} Catch {
-			If ($RetryCount -ge $RetryMax) {
-				$ErrorMessage = $_.Exception.Message
-				Write-Host "Error downloadingig ${RemoteUrl}: $ErrorMessage"
-				$Completed = $true
-			} Else {
-				$RetryCount++
-			}
-		}
-	}
 }
