@@ -165,8 +165,8 @@ function SetupPhpVersionString {
 		[Parameter(Mandatory=$true)] [String] $Pattern
 	)
 
-	$RemoteUrl   = "${PHP_URI}/sha1sum.txt"
-	$Destination = "${Env:Temp}\php-sha1sum.txt"
+	$RemoteUrl   = "${PHP_URI}/sha256sum.txt"
+	$Destination = "${Env:Temp}\sha256sum.txt"
 
 	If (-not [System.IO.File]::Exists($Destination)) {
 		DownloadFile $RemoteUrl $Destination
@@ -176,11 +176,41 @@ function SetupPhpVersionString {
 		$_ -match "php-($Pattern\.\d+)-src"
 	} | ForEach-Object { $matches[1] }
 
-	if ($VersionString -NotMatch '\d+\.\d+\.\d+') {
+	if ($VersionString -NotMatch '\d+\.\d+\.\d+' -or $null -eq $VersionString) {
 		throw "Unable to obtain PHP version string using pattern 'php-($Pattern\.\d+)-src'"
 	}
 
 	Write-Output $VersionString.Split(' ')[-1]
+}
+
+function InstallPhpDevPack {
+	param (
+		[Parameter(Mandatory=$true)]  [System.String] $PhpVersion,
+		[Parameter(Mandatory=$true)]  [System.String] $BuildType,
+		[Parameter(Mandatory=$true)]  [System.String] $VC,
+		[Parameter(Mandatory=$true)]  [System.String] $Platform,
+		[Parameter(Mandatory=$false)] [System.String] $InstallPath = "C:\Projects\php-devpack"
+	)
+
+	Write-Host "Install PHP Dev pack: ${PhpVersion}"
+
+	$Version = SetupPhpVersionString -Pattern $PhpVersion
+
+	$RemoteUrl = "${PHP_URI}/php-devel-pack-${Version}-${BuildType}-vc${VC}-${Platform}.zip"
+	$Archive   = "C:\Downloads\php-devel-pack-${Version}-${BuildType}-VC${VC}-${Platform}.zip"
+
+	if (-not (Test-Path $InstallPath)) {
+		if (-not [System.IO.File]::Exists($Archive)) {
+			DownloadFile $RemoteUrl $Archive
+		}
+
+		$UnzipPath = "${Env:Temp}\php-${Version}-devel-VC${VC}-${Platform}"
+		If (-not (Test-Path "$UnzipPath")) {
+			Expand-Item7zip $Archive $Env:Temp
+		}
+
+		Move-Item -Path $UnzipPath -Destination $InstallPath
+	}
 }
 
 # ================================================================================== #
@@ -449,28 +479,6 @@ Function TuneUpPhp {
 	Write-Output "extension = php_gd2.dll"           | Out-File -Encoding "ASCII" -Append $IniFile
 	Write-Output "extension = php_zephir_parser.dll" | Out-File -Encoding "ASCII" -Append $IniFile
 	Write-Output "extension = php_psr.dll"           | Out-File -Encoding "ASCII" -Append $IniFile
-}
-
-Function InstallPhpDevPack {
-	Write-Host "Install PHP Dev pack: ${Env:PHP_VERSION}" -foregroundcolor Cyan
-
-	$RemoteUrl = "http://windows.php.net/downloads/releases/php-devel-pack-${Env:PHP_VERSION}-${Env:BUILD_TYPE}-vc${Env:VC_VERSION}-${Env:PLATFORM}.zip"
-	$DestinationPath = "C:\Downloads\php-devel-pack-${Env:PHP_VERSION}-${Env:BUILD_TYPE}-VC${Env:VC_VERSION}-${Env:PLATFORM}.zip"
-
-	If (-not (Test-Path $Env:PHP_DEVPACK)) {
-		If (-not [System.IO.File]::Exists($DestinationPath)) {
-			Write-Host "Downloading PHP Dev pack: ${RemoteUrl} ..."
-			DownloadFile $RemoteUrl $DestinationPath
-		}
-
-		$DestinationUnzipPath = "${Env:Temp}\php-${Env:PHP_VERSION}-devel-VC${Env:VC_VERSION}-${Env:PLATFORM}"
-
-		If (-not (Test-Path "$DestinationUnzipPath")) {
-			Expand-Item7zip $DestinationPath $Env:Temp
-		}
-
-		Move-Item -Path $DestinationUnzipPath -Destination $Env:PHP_DEVPACK
-	}
 }
 
 Function InstallPsrExtension {

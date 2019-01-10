@@ -65,9 +65,9 @@ install:
     - ps: SetupPrerequisites
     - ps: InstallPhpSdk $Env:PHP_SDK_VERSION
     - ps: InstallPhp $Env:PHP_VERSION $Env:BUILD_TYPE $Env:VC_VERSION $Env:PLATFORM
+    - ps: InstallPhpDevPack $Env:PHP_VERSION $Env:BUILD_TYPE $Env:VC_VERSION $Env:PLATFORM
 
     - ps: AppendSessionPath
-    - ps: InstallPhpDevPack
     - ps: InstallPsrExtension
     - ps: InstallParser
     - ps: InstallZephir
