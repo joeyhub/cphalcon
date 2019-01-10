@@ -42,7 +42,7 @@ matrix:
     fast_finish: true
 
 cache:
-    - 'C:\Downloads -> appveyor.yml'
+    - 'C:\Downloads -> .appveyor.yml'
     - 'vendor -> composer.json'
     - 'composer.phar -> composer.json'
 
@@ -50,7 +50,7 @@ clone_depth: 1
 clone_folder: c:\projects\phalcon
 
 platform:
-    - x86
+#    - x86
     - x64
 
 #branches:
@@ -60,11 +60,11 @@ platform:
 
 install:
     - ps: Import-Module .\.ci\appveyor.psm1
+    - ps: SetupPrerequisites
+    - ps: InstallPhpSdk -Version $Env:PHP_SDK_VERSION
+
     - ps: AppendSessionPath
     - ps: SetupPhpVersionString
-    - ps: EnsureRequiredDirectoriesPresent
-    - ps: Ensure7ZipIsInstalled
-    - ps: InstallSdk
     - ps: InstallPhp
     - ps: InstallPhpDevPack
     - ps: InstallPsrExtension

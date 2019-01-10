@@ -7,6 +7,73 @@
 # file that was distributed with this source code.
 #
 
+Set-Variable `
+	-name PHP_SDK_URI `
+	-value "https://github.com/Microsoft/php-sdk-binary-tools" `
+	-Scope Global `
+	-Option ReadOnly `
+	-Force
+
+function SetupPrerequisites {
+	Ensure7ZipIsInstalled
+
+	EnsureRequiredDirectoriesPresent `
+		-Directories C:\Downloads,C:\Downloads\Choco,C:\Projects
+}
+
+function Ensure7ZipIsInstalled  {
+	if (-not (Get-Command "7z" -ErrorAction SilentlyContinue)) {
+		$7zipInstallationDirectory = "${Env:ProgramFiles}\7-Zip"
+
+		if (-not (Test-Path "${7zipInstallationDirectory}")) {
+			throw "The 7-zip file archiver is needed to use this module"
+		}
+
+		$Env:Path += ";$7zipInstallationDirectory"
+	}
+}
+
+function EnsureRequiredDirectoriesPresent {
+	param (
+		[Parameter(Mandatory=$true)] [String[]] $Directories
+	)
+
+	foreach ($Dir in $Directories) {
+		if (-not (Test-Path $Dir)) {
+			New-Item -ItemType Directory -Force -Path ${Dir} | Out-Null
+		}
+	}
+}
+
+function InstallPhpSdk {
+	param (
+		[Parameter(Mandatory=$true)]  [System.String] $Version,
+		[Parameter(Mandatory=$false)] [System.String] $InstallPath = "C:\Projects\php-sdk"
+	)
+
+	Write-Host "Install PHP SDK binary tools: ${Version}"
+
+	$FileName  = "php-sdk-${Version}"
+	$RemoteUrl = "${PHP_SDK_URI}/archive/${FileName}.zip"
+	$Archive   = "C:\Downloads\${FileName}.zip"
+
+	if (-not (Test-Path $InstallPath)) {
+		if (-not [System.IO.File]::Exists($Archive)) {
+			DownloadFile -RemoteUrl $RemoteUrl -Destination $Archive
+		}
+
+		$UnzipPath = "${Env:Temp}\php-sdk-binary-tools-${FileName}"
+		If (-not (Test-Path "${UnzipPath}")) {
+			Write-Host "Unpack to ${UnzipPath}"
+			Expand-Item7zip -Archive $Archive -Destination $Env:Temp
+		}
+
+		Move-Item -Path $UnzipPath -Destination $InstallPath
+	}
+}
+
+# ================================================================================== #
+
 Function PrepareReleaseNote {
 	$ReleaseFile = "${Env:APPVEYOR_BUILD_FOLDER}\package\RELEASE.txt"
 	$ReleaseDate = Get-Date -Format g
@@ -404,53 +471,10 @@ Function InstallPhp {
 	}
 }
 
-Function InstallSdk {
-	Write-Host "Install PHP SDK binary tools: ${Env:PHP_SDK_VERSION}" -foregroundcolor Cyan
 
-	$RemoteUrl = "https://github.com/OSTC/php-sdk-binary-tools/archive/php-sdk-${Env:PHP_SDK_VERSION}.zip"
-	$DestinationPath = "C:\Downloads\php-sdk-${Env:PHP_SDK_VERSION}.zip"
 
-	If (-not (Test-Path $Env:PHP_SDK_PATH)) {
-		If (-not [System.IO.File]::Exists($DestinationPath)) {
-			Write-Host "Downloading PHP SDK binary tools: $RemoteUrl ..."
-			DownloadFile $RemoteUrl $DestinationPath
-		}
 
-		$DestinationUnzipPath = "${Env:Temp}\php-sdk-binary-tools-php-sdk-${Env:PHP_SDK_VERSION}"
 
-		If (-not (Test-Path "$DestinationUnzipPath")) {
-			Expand-Item7zip $DestinationPath $Env:Temp
-		}
-
-		Move-Item -Path $DestinationUnzipPath -Destination $Env:PHP_SDK_PATH
-	}
-}
-
-Function Ensure7ZipIsInstalled {
-	If (-not (Get-Command "7z" -ErrorAction SilentlyContinue)) {
-		$7zipInstallationDirectory = "${Env:ProgramFiles}\7-Zip"
-
-		If (-not (Test-Path "$7zipInstallationDirectory")) {
-			Throw "The 7-zip file archiver is needed to use this module"
-		}
-
-		$Env:Path += ";$7zipInstallationDirectory"
-	}
-}
-
-Function EnsureRequiredDirectoriesPresent {
-	If (-not (Test-Path 'C:\Downloads')) {
-		New-Item -ItemType Directory -Force -Path 'C:\Downloads' | Out-Null
-	}
-
-	If (-not (Test-Path 'C:\Downloads\Choco')) {
-		New-Item -ItemType Directory -Force -Path 'C:\Downloads\Choco' | Out-Null
-	}
-
-	If (-not (Test-Path 'C:\Projects')) {
-		New-Item -ItemType Directory -Force -Path 'C:\Projects' | Out-Null
-	}
-}
 
 Function EnsureChocolateyIsInstalled {
 	If (-not (Get-Command "choco" -ErrorAction SilentlyContinue)) {
