@@ -201,9 +201,10 @@ function InstallPhpDevPack {
 	Write-Host "Install PHP Dev pack: ${PhpVersion}"
 
 	$Version = SetupPhpVersionString -Pattern $PhpVersion
+	$FileName = "php-devel-pack-${Version}-${BuildType}-vc${VC}-${Platform}.zip"
 
-	$RemoteUrl = "${PHP_URI}/php-devel-pack-${Version}-${BuildType}-vc${VC}-${Platform}.zip"
-	$Archive   = "C:\Downloads\php-devel-pack-${Version}-${BuildType}-VC${VC}-${Platform}.zip"
+	$RemoteUrl = "${PHP_URI}/${FileName}"
+	$Archive   = "C:\Downloads\${FileName}"
 
 	if (-not (Test-Path $InstallPath)) {
 		if (-not [System.IO.File]::Exists($Archive)) {
@@ -236,7 +237,7 @@ function InstallPeclPsr {
 		$Type = 'ts'
 	}
 
-	$FileName = "php_psr-${Version}-${Env:PSR_PECL_VERSION}-${Type}-vc${VC}-${Platform}.zip"
+	$FileName = "php_psr-${PhpVersion}-${Env:PSR_PECL_VERSION}-${Type}-vc${VC}-${Platform}.zip"
 
 	$RemoteUrl = "${PECL_URI}/psr/${Env:PSR_PECL_VERSION}/${FileName}"
 	$Archive = "C:\Downloads\${FileName}"
