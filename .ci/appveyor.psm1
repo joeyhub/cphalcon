@@ -237,7 +237,7 @@ function InstallPeclPsr {
 		$Type = 'ts'
 	}
 
-	$FileName = "php_psr-${PhpVersion}-${Env:PSR_PECL_VERSION}-${Type}-vc${VC}-${Platform}.zip"
+	$FileName = "php_psr-${Env:PSR_PECL_VERSION}-${PhpVersion}-${Type}-vc${VC}-${Platform}.zip"
 
 	$RemoteUrl = "${PECL_URI}/psr/${Env:PSR_PECL_VERSION}/${FileName}"
 	$Archive = "C:\Downloads\${FileName}"
